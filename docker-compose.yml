@@ -1,0 +1,17 @@
+services:
+  backend:
+    build: ./backend
+    container_name: image_matching_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/dataset:/app/dataset
+      - ./backend/results:/app/results
+
+  frontend:
+    build: ./frontend
+    container_name: image_matching_frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
