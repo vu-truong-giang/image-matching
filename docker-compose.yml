@@ -4,9 +4,7 @@ services:
     container_name: image_matching_backend
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend/dataset:/app/dataset
-      - ./backend/results:/app/results
+
 
   frontend:
     build: ./frontend
