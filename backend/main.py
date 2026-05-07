@@ -1,6 +1,8 @@
-from fastapi import FastAPI , UploadFile , File
+import cv2
+from fastapi import FastAPI, Form , UploadFile , File
 from fastapi.middleware.cors import CORSMiddleware
 from sift import extract_sift_features, match_images
+from tranform_img import rotate_image, crop_border, resize_image, change_brightness, add_noise
 import os 
 import shutil
 app = FastAPI()
@@ -15,7 +17,8 @@ DATASET_DIR = "dataset"
 os.makedirs(DATASET_DIR, exist_ok=True)
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
+STATIC_DIR = "static"
+os.makedirs(STATIC_DIR, exist_ok=True)
 @app.get("/")
 def read_root():
     return {"message": "Backend is running 🚀"}
@@ -78,3 +81,39 @@ async def search_similar_image(file: UploadFile = File(...)):
         "query_image": file.filename,
         "results": results[:5]
     }
+@app.post("/transform")
+async def transform_image(
+    file: UploadFile = File(...),
+    transform_type: str = Form(...),
+    angle: float = Form(30),
+    percent: float = Form(0.1),
+    scale: float = Form(0.7),
+    beta: float = Form(50)
+):
+    file_location = os.path.join(UPLOAD_DIR, file.filename)
+    with open(file_location , "wb") as buffer:
+        shutil.copyfileobj(file.file,buffer)
+    if transform_type == "rotate":
+        transformed = rotate_image(file_location, angle)
+    elif transform_type == "crop":
+        transformed = crop_border(file_location, percent)
+    elif transform_type == "resize":
+        transformed = resize_image(file_location, scale)
+    elif transform_type == "brightness":
+        transformed = change_brightness(file_location, beta)
+    elif transform_type == "noise":
+        transformed = add_noise(file_location)
+    else:
+        return {
+            "message": "Invalid transform type"
+        }
+    output_filename = f"{transform_type}_{file.filename}"
+    output_path = os.path.join(STATIC_DIR, output_filename)
+    cv2.imwrite(output_path, transformed)
+    return {
+        "filename": file.filename,
+        "transform_type": transform_type,
+        "output_path": output_path,
+        "message": "Image transformed successfully"
+    }
+    
