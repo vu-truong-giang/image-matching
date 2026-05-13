@@ -3,8 +3,10 @@ from fastapi import FastAPI, Form , UploadFile , File
 from fastapi.middleware.cors import CORSMiddleware
 from sift import extract_sift_features, match_images
 from tranform_img import rotate_image, crop_border, resize_image, change_brightness, add_noise
+from watermark_dwt_svd import embed_watermark_dwt_svd, extract_watermark_dwt_svd , find_uvs_files
 import os 
 import shutil
+import numpy as np
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -19,6 +21,12 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 STATIC_DIR = "static"
 os.makedirs(STATIC_DIR, exist_ok=True)
+WATERMARK_DIR = "watermarks"
+os.makedirs(WATERMARK_DIR, exist_ok=True)
+USV_DIR = "usv"
+os.makedirs(USV_DIR, exist_ok=True)
+EXTRACT_DIR = "extracted"
+os.makedirs(EXTRACT_DIR, exist_ok=True)
 @app.get("/")
 def read_root():
     return {"message": "Backend is running 🚀"}
@@ -116,4 +124,67 @@ async def transform_image(
         "output_path": output_path,
         "message": "Image transformed successfully"
     }
+
+@app.post("/embed-watermark")
+async def embed_watermark(
+    file: UploadFile = File(...),
+    watermark: UploadFile = File(...)
+):
+    file_location = os.path.join(UPLOAD_DIR, file.filename)
+    with open(file_location, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    watermark_location = os.path.join(WATERMARK_DIR, watermark.filename)
+    with open(watermark_location, "wb") as buffer:
+        shutil.copyfileobj(watermark.file, buffer)
+
+    embedded_image , S_host, U_wm, Vt_wm = embed_watermark_dwt_svd(file_location, watermark_location , alpha=0.05)
+
+    output_filename = f"watermarked_{file.filename}"
+    output_path = os.path.join(DATASET_DIR, output_filename)
+    cv2.imwrite(output_path, embedded_image)
+
+    originnal_output_filename = os.path.splitext(output_filename)[0]
+    np.save(f"{USV_DIR}/{originnal_output_filename}_S_host.npy", S_host)
+    np.save(f"{USV_DIR}/{originnal_output_filename}_U_wm.npy", U_wm)
+    np.save(f"{USV_DIR}/{originnal_output_filename}_Vt_wm.npy", Vt_wm)
+
+
+    os.remove(file_location)
+
+    return {
+        "filename": file.filename,
+        "output_path": output_path,
+        "message": "Watermark embedded successfully"
+    }
+
+@app.post("/extract-watermark")
+async def extract_watermark(
+    file: UploadFile = File(...),
+    S_host: UploadFile = File(...),
+    U_wm: UploadFile = File(...),
+    Vt_wm: UploadFile = File(...)
+):
+    file_location = os.path.join(STATIC_DIR, file.filename)
+    with open(file_location, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
     
+    S_host_location , U_wm_location , Vt_wm_location = find_uvs_files(file.filename , USV_DIR)
+            
+    extracted_watermark = extract_watermark_dwt_svd(
+                            file_location,
+                            np.load(S_host_location),
+                            np.load(U_wm_location), 
+                            np.load(Vt_wm_location),
+                            alpha=0.05
+                        )
+    
+    output_filename = f"extracted_{file.filename}"
+    output_path = os.path.join(EXTRACT_DIR, output_filename)
+    cv2.imwrite(output_path, extracted_watermark)
+
+    return {
+        "filename": file.filename,
+        "output_path": output_path,
+        "message": "Watermark extracted successfully"
+    }

@@ -1,6 +1,17 @@
 import cv2
 import numpy as np
 import pywt
+import os
+
+def find_uvs_files(image_filename , usv_dir):
+    name = os.path.splitext(image_filename)[0]
+   
+
+    S_host_path = os.path.join(usv_dir, f"{name}_S_host.npy")
+    U_wm_path = os.path.join(usv_dir, f"{name}_U_wm.npy")
+    Vt_wm_path = os.path.join(usv_dir, f"{name}_Vt_wm.npy")
+
+    return S_host_path, U_wm_path, Vt_wm_path
 
 
 def read_gray_image(path, size=None):
