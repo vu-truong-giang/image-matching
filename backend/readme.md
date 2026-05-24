@@ -1,8 +1,11 @@
 main.py        code FastAPI
 requirements  thư viện cần cài
-dataset/       chứa ảnh gốc để tìm kiếm
+dataset/       chứa ảnh gốc đã nhúng watermark để tìm kiếm 
+extracted/     ảnh khi đã khôi phục sẽ trích xuất watermark , watermark dc lưu vào đây 
+static/        chứa ảnh bị tấn công rotate , zoom , .... 
 uploads/       chứa ảnh người dùng upload
-static/        chứa ảnh kết quả trả về frontend
+usv/           chứa 3 file S,U,V khi đã nhúng watermark vào ảnh
+watermarks/    chứa logo watermark để nhúng vào ảnh 
 
 
 
