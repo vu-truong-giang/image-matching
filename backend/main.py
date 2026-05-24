@@ -30,10 +30,10 @@ USV_DIR = "usv"
 os.makedirs(USV_DIR, exist_ok=True)
 EXTRACT_DIR = "extracted"
 os.makedirs(EXTRACT_DIR, exist_ok=True)
-
+    
 app.mount("/dataset", StaticFiles(directory="dataset"), name="dataset")
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
+app.mount("/extracted", StaticFiles(directory=EXTRACT_DIR), name="extracted")
 @app.get("/")
 def read_root():
     return {"message": "Backend is running 🚀"}
@@ -99,35 +99,36 @@ async def search_similar_image(file: UploadFile = File(...)):
 @app.post("/transform")
 async def transform_image(
     file: UploadFile = File(...),
-    transform_type: str = Form(...),
-    angle: float = Form(30),
-    percent: float = Form(0.1),
-    scale: float = Form(0.7),
-    beta: float = Form(50)
+    attack_type: str = Form(...),
+    value: float = Form(0)
 ):
     file_location = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_location , "wb") as buffer:
         shutil.copyfileobj(file.file,buffer)
-    if transform_type == "rotate":
-        transformed = rotate_image(file_location, angle)
-    elif transform_type == "crop":
-        transformed = crop_border(file_location, percent)
-    elif transform_type == "resize":
-        transformed = resize_image(file_location, scale)
-    elif transform_type == "brightness":
-        transformed = change_brightness(file_location, beta)
-    elif transform_type == "noise":
-        transformed = add_noise(file_location)
+    if attack_type == "rotate":
+        result = rotate_image(file_location, angle=value)
+
+    elif attack_type == "crop":
+            result = crop_border(file_location, percent=value)
+
+    elif attack_type == "resize":
+            result = resize_image(file_location, scale=value)
+
+    elif attack_type == "brightness":
+            result = change_brightness(file_location, beta=value)
+
+    elif attack_type == "noise":
+            result = add_noise(file_location)
     else:
         return {
-            "message": "Invalid transform type"
+            "message": "Invalid attack type"
         }
-    output_filename = f"{transform_type}_{file.filename}"
+    output_filename = f"{attack_type}_{file.filename}"
     output_path = os.path.join(STATIC_DIR, output_filename)
-    cv2.imwrite(output_path, transformed)
+    cv2.imwrite(output_path, result)
     return {
         "filename": file.filename,
-        "transform_type": transform_type,
+        "attack_type": attack_type,
         "output_path": output_path,
         "message": "Image transformed successfully"
     }
@@ -149,6 +150,7 @@ async def embed_watermark(
 
     output_filename = f"watermarked_{file.filename}"
     output_path = os.path.join(DATASET_DIR, output_filename)
+
     cv2.imwrite(output_path, embedded_image)
 
     originnal_output_filename = os.path.splitext(output_filename)[0]
@@ -246,10 +248,7 @@ async def embed_watermark_folder(
 @app.post("/extract-watermark")
 async def extract_watermark(
     file: UploadFile = File(...),
-    S_host: UploadFile = File(...),
-    U_wm: UploadFile = File(...),
-    Vt_wm: UploadFile = File(...)
-):
+):  
     file_location = os.path.join(STATIC_DIR, file.filename)
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
